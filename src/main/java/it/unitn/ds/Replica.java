@@ -49,11 +49,22 @@ public class Replica extends AbstractReplica {
             System.out.println("I am the coordinator, sending UPDATE to replicas");
             for (Map.Entry<Integer, ActorRef> entry : group.entrySet()) {
                 if (entry.getKey() != this.id) {
-                    entry.getValue().tell(new Messages.Update(msg.index, msg.value, UpdateId(this.epoch, this.seqNum), getSelf()),
+                    entry.getValue().tell(new Messages.Update(msg.index, msg.value, Clock(this.epoch, this.seqNum)),
                             getSelf());
                 }
             }
         }
+        // TODO: if not the coordinator, forward to the coordinator
+        // TODO: handle timeout (I guess)
+    }
+
+    private final void handleUpdateRequest(Messages.Update _msg) throws Exception {
+        // TODO: update internal state with the new values
+        
+        // TODO: send ACK back to the coordinator
+        group.get(coordinatorId).tell(new Messages.Ack(_msg.clock.incrementSeqNum()), getSelf());
+            
+        // TODO: handle timeout (I guess)
     }
 
     @Override
@@ -80,6 +91,7 @@ public class Replica extends AbstractReplica {
                 // TODO: add your message handlers here .match(, )
                 .match(AbstractReplica.InitSystem.class, this::initSystem)
                 .match(Messages.UpdateRequest.class, this::handleUpdateRequest)
+                .match(Messages.Update.class, this::handleUpdate)
                 .build();
     }
 

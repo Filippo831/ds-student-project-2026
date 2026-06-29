@@ -30,6 +30,7 @@ public class Client extends AbstractClient {
 
     private final void handleReadRequest(AbstractClient.ReadRequest _msg) throws Exception {
         sendRead(_msg.replica, _msg.index);
+        // TODO: handle timeout
     }
 
     @Override

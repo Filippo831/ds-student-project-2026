@@ -5,22 +5,32 @@ import java.io.Serializable;
 import akka.actor.ActorRef;
 
 public class Messages {
-    public static class UpdateId {
+    public static class Clock{
         public final int epoch;
         public final int seqNum;
 
-        public UpdateId(int _epoch, int _seqNum) {
+        public Clock(int _epoch, int _seqNum) {
             epoch = _epoch;
             seqNum = _seqNum;
         }
 
         // check if this UpdateId is newer than the other UpdateId, first compare the
         // epoch, if they are equal compare the id
-        public boolean isNewerThan(UpdateId other) {
+        public boolean isNewerThan(Clock other) {
             if (this.epoch != other.epoch) {
                 return this.epoch > other.epoch;
             }
             return this.seqNum > other.seqNum;
+        }
+
+        public void incrementSeqNum() {
+            this.seqNum++;
+        }
+
+        public void incrementEpoch() {
+            // when changing epoch, reset the seqNum to 0
+            this.epoch++;
+            this.seqNum = 0;
         }
     }
 
@@ -55,16 +65,19 @@ public class Messages {
         public final int index;
         public final int value;
 
-        public final UpdateId updateId;
+        public final Clock clock ;
 
-        // keep track on who sent the message
-        public final ActorRef client;
-
-        public Update(int _index, int _value, UpdateId _updateId, ActorRef _client) {
+        public Update(int _index, int _value, Clock _clock) {
             index = _index;
             value = _value;
-            updateId = _updateId;
-            client = _client;
+            clock = _clock;
+        }
+    }
+    public static class Ack implements Serializable {
+        public final Clock clock;
+
+        public Update(Clock _clock) {
+            clock = _clock;
         }
     }
 }
