@@ -11,6 +11,10 @@ public class Replica extends AbstractReplica {
     private Map<Integer, ActorRef> group;
     private int coordinatorId;
 
+    private int epoch;
+    private int seqNum;
+
+
     public Replica(int id) {
         this(id, AbstractReplica.MIN_LATENCY, AbstractReplica.MAX_LATENCY, AbstractReplica.COORDINATOR_BEAT_INTERVAL,
                 Optional.empty());
@@ -21,6 +25,8 @@ public class Replica extends AbstractReplica {
         // TODO: implement
         this.group = new HashMap<>();
         this.coordinatorId = -1;
+        this.epoch = 0;
+        this.seqNum = 0;
     }
 
     public static Props props(int id, int minLatency, int maxLatency, int coordinatorBeatInterval) {
@@ -35,6 +41,20 @@ public class Replica extends AbstractReplica {
                 () -> new Replica(id, minLatency, maxLatency, coordinatorBeatInterval, Optional.ofNullable(listener)));
     }
 
+    private final void handleUpdateRequest(Messages.UpdateRequest _msg) throws Exception {
+        System.out.println("received UpdateRequest from client");
+        if (this.id == coordinatorId) {
+            // if is the coordinator who received the updateRequest, send an UPDATE to the
+            // replicas
+            System.out.println("I am the coordinator, sending UPDATE to replicas");
+            for (Map.Entry<Integer, ActorRef> entry : group.entrySet()) {
+                if (entry.getKey() != this.id) {
+                    entry.getValue().tell(new Messages.Update(msg.index, msg.value, UpdateId(this.epoch, this.seqNum), getSelf()),
+                            getSelf());
+                }
+            }
+        }
+    }
 
     @Override
     public int getSystemNumberOfActors() {
@@ -59,9 +79,7 @@ public class Replica extends AbstractReplica {
         return createBaseReceiveBuilder()
                 // TODO: add your message handlers here .match(, )
                 .match(AbstractReplica.InitSystem.class, this::initSystem)
-                .match(Messages.UpdateRequest.class, msg -> {
-                    System.out.println("received UpdateRequest from client");
-                })
+                .match(Messages.UpdateRequest.class, this::handleUpdateRequest)
                 .build();
     }
 
