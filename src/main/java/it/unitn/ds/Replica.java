@@ -59,8 +59,10 @@ public class Replica extends AbstractReplica {
     }
 
     private final void handleUpdateRequest(Messages.UpdateRequest _msg) throws Exception {
-        System.out.println("received UpdateRequest from client");
+        debug("Received UPDATE_REQUEST from client " + getSender().path().name() + " for index: " + _msg.index
+                + " and value: " + _msg.value);
         if (this.id == coordinatorId) {
+            this.seqNum++;
             // if is the coordinator who received the updateRequest, send an UPDATE to the
             // replicas
             for (Map.Entry<Integer, ActorRef> entry : group.entrySet()) {
@@ -79,25 +81,27 @@ public class Replica extends AbstractReplica {
     }
 
     private final void handleUpdate(Messages.Update _msg) throws Exception {
+        debug("Received UPDATE from coordinator " + getSender().path().name() + " for clock: " + _msg.clock.toString());
         this.pendingUpdateClock = _msg.clock;
         this.pendingUpdateData = new Messages.UpdateData(_msg.index, _msg.value);
 
         // send ACK back to the coordinator
-        _msg.clock.incrementSeqNum();
         group.get(coordinatorId).tell(new Messages.Ack(_msg.clock), getSelf());
 
         // TODO: handle timeout (I guess)
     }
 
     private final void handleAck(Messages.Ack _msg) throws Exception {
+        debug("Received ACK from replica " + getSender().path().name() + " for clock: " + _msg.clock.toString());
         // incerment number of received ack for the _msg.NodeClock
         this.ackCounters.putIfAbsent(_msg.clock, 1);
         this.ackCounters.put(_msg.clock, this.ackCounters.get(_msg.clock) + 1);
+        // print the ackCounters for debug purposes
+        debug("Ack counters: " + this.ackCounters.toString());
 
         // if number of ack received > (N/2 + 1) [quorum]
         if (this.ackCounters.get(_msg.clock) > (Math.floor(group.size() / 2) + 1)) {
             // send the writeOk to all the others
-            _msg.clock.incrementSeqNum();
             for (Map.Entry<Integer, ActorRef> entry : group.entrySet()) {
                 if (entry.getKey() != this.id) {
                     entry.getValue().tell(new Messages.WriteOk(_msg.clock), getSelf());
@@ -109,6 +113,7 @@ public class Replica extends AbstractReplica {
     }
 
     private final void handleWriteOk(Messages.WriteOk _msg) throws Exception {
+        debug("Received WRITE_OK from replica " + getSender().path().name() + " for clock: " + _msg.clock.toString());
         // update internal state with the new values
         if (pendingUpdateClock != null && pendingUpdateClock.equals(_msg.clock)) {
             commitHistory.put(pendingUpdateClock, pendingUpdateData);
@@ -120,6 +125,12 @@ public class Replica extends AbstractReplica {
             pendingUpdateClock = null;
             pendingUpdateData = null;
         }
+    }
+
+    private final void handleReadRequest(Messages.ReadRequest _msg) {
+        this.seqNum++;
+        int value = storage[_msg.index];
+        _msg.client.tell(new Messages.ReadResponse(_msg.index, value, this.id), getSelf()); 
     }
 
     @Override
@@ -137,7 +148,6 @@ public class Replica extends AbstractReplica {
         // TODO: implement
         this.group = sysInit.group;
         this.coordinatorId = sysInit.coordinator_id;
-        System.out.println("replica init");
     }
 
     @Override
@@ -149,6 +159,7 @@ public class Replica extends AbstractReplica {
                 .match(Messages.Update.class, this::handleUpdate)
                 .match(Messages.Ack.class, this::handleAck)
                 .match(Messages.WriteOk.class, this::handleWriteOk)
+                .match(Messages.ReadRequest.class, this::handleReadRequest)
                 .build();
     }
 

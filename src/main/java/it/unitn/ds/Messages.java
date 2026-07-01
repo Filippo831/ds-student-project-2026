@@ -1,6 +1,7 @@
 package it.unitn.ds;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 import akka.actor.ActorRef;
 
@@ -35,8 +36,19 @@ public class Messages {
             return this.seqNum > _other.seqNum;
         }
 
-        public boolean equals(NodeClock _other) {
-            return (this.epoch == _other.epoch) && (this.seqNum == _other.seqNum);
+        @Override
+        public boolean equals(Object o) {
+            if (this == o)
+                return true;
+            if (o == null || getClass() != o.getClass())
+                return false;
+            NodeClock updateId = (NodeClock) o;
+            return epoch == updateId.epoch && seqNum == updateId.seqNum;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(epoch, seqNum);
         }
 
         public void incrementSeqNum() {
@@ -73,6 +85,19 @@ public class Messages {
         public ReadRequest(int _index, ActorRef _client) {
             index = _index;
             client = _client;
+        }
+    }
+
+    public static class ReadResponse implements Serializable {
+        public final int index;
+        public final int value;
+
+        public final int sender;
+
+        public ReadResponse(int _index, int _value, int _sender) {
+            index = _index;
+            value = _value;
+            sender = _sender;
         }
     }
 
