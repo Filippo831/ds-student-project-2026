@@ -18,7 +18,7 @@ public class Messages {
         }
     }
 
-    public static class NodeClock {
+    public static class NodeClock implements Comparable<NodeClock>{
         public int epoch;
         public int seqNum;
 
@@ -34,6 +34,14 @@ public class Messages {
                 return this.epoch > _other.epoch;
             }
             return this.seqNum > _other.seqNum;
+        }
+
+        @Override
+        public int compareTo(NodeClock _other) {
+            if (this.epoch != _other.epoch) {
+                return Integer.compare(this.epoch, _other.epoch);
+            }
+            return Integer.compare(this.seqNum, _other.seqNum);
         }
 
         @Override
